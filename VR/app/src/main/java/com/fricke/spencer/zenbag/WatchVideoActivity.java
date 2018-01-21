@@ -50,7 +50,7 @@ import pub.devrel.easypermissions.EasyPermissions;
 import android.widget.FrameLayout;
 
 public class WatchVideoActivity extends Activity
-        implements  Session.SessionListener, SubscriberKit.SubscriberListener {
+        implements  Session.SessionListener, SubscriberKit.SubscriberListener, SubscriberKit.VideoListener {
 
   private static final String TAG = WatchVideoActivity.class.getSimpleName();
 
@@ -61,8 +61,8 @@ public class WatchVideoActivity extends Activity
 //  private boolean hasFirstFrame;
 
   private static String API_KEY = "46043442";
-  private static String SESSION_ID = "2_MX40NjA0MzQ0Mn5-MTUxNjQ3ODcwOTM4MX5YVFJpRzZwUlMyMm9sU09ScklJSlJsaXZ-fg";
-  private static String TOKEN = "T1==cGFydG5lcl9pZD00NjA0MzQ0MiZzaWc9OWMwNzgxNmYwNDg3MDgwNjA4OWRlZGM5OTlhZmFhNDliM2RkNDlmZjpzZXNzaW9uX2lkPTJfTVg0ME5qQTBNelEwTW41LU1UVXhOalEzT0Rjd09UTTRNWDVZVkZKcFJ6WndVbE15TW05c1UwOVNja2xKU2xKc2FYWi1mZyZjcmVhdGVfdGltZT0xNTE2NDc4OTM3Jm5vbmNlPTAuMzYxNjk5MjUzODQ5NDE4OCZyb2xlPW1vZGVyYXRvciZleHBpcmVfdGltZT0xNTE3MDgzNzM3JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9";
+  private static String SESSION_ID = "1_MX40NjA0MzQ0Mn5-MTUxNjQ5NDY1NjE5OH51VktTd0ZIRXpXT2pKREpCUFhGeHpxUzh-fg";
+  private static String TOKEN = "T1==cGFydG5lcl9pZD00NjA0MzQ0MiZzaWc9ZmI5MzkzNGE4YTc0NDBhZDZhODdkMTUzYmRjNjg1MzYzYTE2NDNjZTpzZXNzaW9uX2lkPTFfTVg0ME5qQTBNelEwTW41LU1UVXhOalE1TkRZMU5qRTVPSDUxVmt0VGQwWklSWHBYVDJwS1JFcENVRmhHZUhweFV6aC1mZyZjcmVhdGVfdGltZT0xNTE2NDk0Njc4Jm5vbmNlPTAuNDg4ODQzMjg4OTI1MTA1MyZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNTE5MDg2Njc4JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9";
   private static final String LOG_TAG = WatchVideoActivity.class.getSimpleName();
   private static final int RC_SETTINGS_SCREEN_PERM = 123;
   private static final int RC_VIDEO_APP_PERM = 124;
@@ -212,6 +212,11 @@ public class WatchVideoActivity extends Activity
     super.onStart();
     if (videoPlayer == null) {
       initVideoPlayer();
+//
+//      videoPlayer.releasePlayer();
+//      videoPlayer = null;
+//      videoPlayer.pause();
+//      super.onPause();
     }
 
     renderer.startedPlaybackFalse();
@@ -230,6 +235,7 @@ public class WatchVideoActivity extends Activity
         gvrLayout.getGvrApi().refreshViewerProfile();
       }
     };
+
   }
 
   @Override
@@ -334,7 +340,8 @@ public class WatchVideoActivity extends Activity
     String[] perms = { Manifest.permission.INTERNET, Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO };
     if (EasyPermissions.hasPermissions(this, perms)) {
       // initialize view objects from your layout
-     // mSubscriberViewContainer = (FrameLayout)findViewById(R.id.subscriber_container);
+//      mSubscriberViewContainer = new FrameLayout(this);
+      mSubscriberViewContainer = (FrameLayout)findViewById(R.id.subscriber_container);
 
       // initialize and connect to the session
       mSession = new Session.Builder(this, API_KEY, SESSION_ID).build();
@@ -361,11 +368,50 @@ public class WatchVideoActivity extends Activity
   public void onConnected(SubscriberKit subscriberKit) {
     Log.i(LOG_TAG, "Subscriber Connected");
 
-    mSubscriberViewContainer.addView(mSubscriber.getView());
+    if (mSubscriber == null) {
+      Log.i(LOG_TAG, "Subscriber IS NULL");
+    }
+    if (mSubscriber.getView() == null) {
+      Log.i(LOG_TAG, "GetView IS NULL");
+    }
+//      mSubscriber = new Subscriber(this, stream);
+//      mSubscriber.setSubscriberListener(this);
+//      mSubscriber.setRenderer(renderer);
+//      renderer.setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE,
+//              BaseVideoRenderer.STYLE_VIDEO_FILL);
+//      mSession.subscribe(mSubscriber);
+//           mSubscriberViewContainer.addView(mSubscriber.getView());
+//    }
+
+  }
+  @Override
+  public void onVideoDataReceived(SubscriberKit var1) {
+    renderer.setStreaming(true);
+    Log.i(LOG_TAG, "Video DATA RECEIVED onVideoDataReceived");
+  }
+  @Override
+  public void onVideoDisabled(SubscriberKit var1, String var2) {
+    Log.i(LOG_TAG, "Video DATA RECEIVED onVideoDisabled");}
+  @Override
+  public void onVideoEnabled(SubscriberKit var1, String var2) {
+    Log.i(LOG_TAG, "Video DATA RECEIVED onVideoEnabled");}
+  @Override
+  public void onVideoDisableWarning(SubscriberKit var1) {
+    renderer.setStreaming(false);
+    Log.i(LOG_TAG, "Video DATA RECEIVED onVideoDisableWarning");
   }
 
   @Override
+  public void onVideoDisableWarningLifted(SubscriberKit var1) {
+    Log.i(LOG_TAG, "Video DATA RECEIVED onVideoDisableWarningLifted");
+  }
+
+
+
+
+  @Override
   public void onDisconnected(SubscriberKit subscriberKit) {
+    renderer.setStreaming(false);
     Log.i(LOG_TAG, "Subscriber Disconnected");
   }
 
@@ -378,14 +424,14 @@ public class WatchVideoActivity extends Activity
   public void onStreamReceived(Session session, Stream stream) {
     Log.i(LOG_TAG, "Stream Received");
 
+
     if (mSubscriber == null) {
-      mSubscriber = new Subscriber(this, stream);
+      mSubscriber = new Subscriber.Builder(this, stream).build();
       mSubscriber.setSubscriberListener(this);
       mSubscriber.setRenderer(renderer);
-      renderer.setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE,
+      mSubscriber.getRenderer().setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE,
               BaseVideoRenderer.STYLE_VIDEO_FILL);
       mSession.subscribe(mSubscriber);
- //     mSubscriberViewContainer.addView(mSubscriber.getView());
     }
   }
 
@@ -395,7 +441,7 @@ public class WatchVideoActivity extends Activity
 
     if (mSubscriber != null) {
       mSubscriber = null;
- //     mSubscriberViewContainer.removeAllViews();
+//      mSubscriberViewContainer.removeAllViews();
     }
   }
 

@@ -19,6 +19,8 @@ import android.content.Context;
 import android.graphics.RectF;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
+import android.util.Log;
+
 import com.google.android.exoplayer2.decoder.DecoderCounters;
 import com.google.vr.ndk.base.BufferViewport;
 import java.nio.ByteBuffer;
@@ -29,12 +31,19 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 
+import com.opentok.android.BaseVideoRenderer;
+
+import static com.fricke.spencer.zenbag.GLUtil.initializeTexture;
+
 /**
  * Handles positioning the video in the correct place in the scene and rendering a transparent hole
  * into the color buffer in the same place. All methods in this class should be called on the
  * application's GL thread, unless otherwise noted.
  */
 public class VideoScene {
+
+  int mTextureIds[] = new int[3];
+
   private static final String TAG = "VideoScreen";
   private static final RectF videoUv = new RectF(0.f, 1.f, 1.f, 0.f);
 
@@ -62,6 +71,7 @@ public class VideoScene {
   private final TreeMap<Long, Integer> frameCounts = new TreeMap<Long, Integer>();
   private volatile int videoSurfaceID = BufferViewport.EXTERNAL_SURFACE_ID_NONE;
   private volatile boolean isVideoPlaying = false;
+  private volatile boolean isStreaming = false;
   private float currentFpsFraction = 0.f;
 
   public VideoScene(Settings settings) {
@@ -76,6 +86,10 @@ public class VideoScene {
    */
   public void setHasVideoPlaybackStarted(boolean hasPlaybackStarted) {
     isVideoPlaying = hasPlaybackStarted;
+  }
+
+  public void setStreamingStatus(boolean hasStarted) {
+    isStreaming = hasStarted;
   }
 
   /**
@@ -119,32 +133,39 @@ public class VideoScene {
    *
    * @param perspectiveFromWorld Transformation from world space to clip space.
    */
-  public void draw(float[] perspectiveFromWorld) {
+  public void draw(float[] perspectiveFromWorld, com.opentok.android.BaseVideoRenderer.Frame currentFrame) {
     Matrix.multiplyMM(perspectiveFromQuad, 0, perspectiveFromWorld, 0, worldFromQuad, 0);
     int program;
-    if (isVideoPlaying) {
-      program = resources.solidColorProgram;
+    //if (isVideoPlaying) {
+    if (isStreaming) {
+      program = resources.frameProgram;
     } else {
-      program = resources.spriteProgram;
+      program = resources.solidColorProgram;
     }
 
     GLES20.glUseProgram(program);
     GLUtil.checkGlError(TAG, "glUseProgram");
 
-    if (program == resources.spriteProgram) {
-      GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, resources.loadingTextureId);
-      GLUtil.checkGlError(TAG, "glBindTexture");
-      final int uImageTexture = GLES20.glGetUniformLocation(program, "uImageTexture");
-      GLUtil.checkGlError(TAG, "glGetUniformLocation uImageTexture");
-      if (uImageTexture == -1) {
-        throw new RuntimeException("Could not get uniform location for uImageTexture");
+    if (program == resources.frameProgram) {
+      if (resources.mTextureWidth != currentFrame.getWidth()
+              || resources.mTextureHeight != currentFrame.getHeight()) {
+        setupTextures(currentFrame);
       }
-      GLES20.glUniform1i(uImageTexture, 0);
+      updateTextures(currentFrame);
+
+//      GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+//      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, resources.loadingTextureId);
+//      GLUtil.checkGlError(TAG, "glBindTexture");
+//      final int uImageTexture = GLES20.glGetUniformLocation(program, "uImageTexture");
+//      GLUtil.checkGlError(TAG, "glGetUniformLocation uImageTexture");
+//      if (uImageTexture == -1) {
+//        throw new RuntimeException("Could not get uniform location for uImageTexture");
+//      }
+//      GLES20.glUniform1i(uImageTexture, 0);
     } else {
-      final int uColor = GLES20.glGetUniformLocation(program, "uColor");
-      GLES20.glUniform4f(uColor, 1.0f, 0.f, 0.f, 0.f);
-    }
+    final int uColor = GLES20.glGetUniformLocation(program, "uColor");
+    GLES20.glUniform4f(uColor, 0.0f, 0.f, 0.f, 0.f);
+  }
 
     final int positionAttribute = GLES20.glGetAttribLocation(program, "aPosition");
     GLUtil.checkGlError(TAG, "glGetAttribLocation aPosition");
@@ -187,6 +208,70 @@ public class VideoScene {
     }
   }
 
+  private void setupTextures(BaseVideoRenderer.Frame frame) {
+    if (mTextureIds[0] != 0) {
+      GLES20.glDeleteTextures(3, mTextureIds, 0);
+    }
+    GLES20.glGenTextures(3, mTextureIds, 0);
+
+    int w = frame.getWidth();
+    int h = frame.getHeight();
+    int hw = (w + 1) >> 1;
+    int hh = (h + 1) >> 1;
+
+    initializeTexture(GLES20.GL_TEXTURE0, mTextureIds[0], w, h);
+    initializeTexture(GLES20.GL_TEXTURE1, mTextureIds[1], hw, hh);
+    initializeTexture(GLES20.GL_TEXTURE2, mTextureIds[2], hw, hh);
+
+    resources.mTextureWidth = frame.getWidth();
+    resources.mTextureHeight = frame.getHeight();
+  }
+
+  private void updateTextures(BaseVideoRenderer.Frame frame) {
+    int width = frame.getWidth();
+    int height = frame.getHeight();
+    int half_width = (width + 1) >> 1;
+    int half_height = (height + 1) >> 1;
+    int y_size = width * height;
+    int uv_size = half_width * half_height;
+
+    ByteBuffer bb = frame.getBuffer();
+    // If we are reusing this frame, make sure we reset position and
+    // limit
+    bb.clear();
+
+    if (bb.remaining() == y_size + uv_size * 2) {
+      bb.position(0);
+
+      GLES20.glPixelStorei(GLES20.GL_UNPACK_ALIGNMENT, 1);
+      GLES20.glPixelStorei(GLES20.GL_PACK_ALIGNMENT, 1);
+
+      GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureIds[0]);
+      GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0, width,
+              height, GLES20.GL_LUMINANCE, GLES20.GL_UNSIGNED_BYTE,
+              bb);
+
+      bb.position(y_size);
+      GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureIds[1]);
+      GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0,
+              half_width, half_height, GLES20.GL_LUMINANCE,
+              GLES20.GL_UNSIGNED_BYTE, bb);
+
+      bb.position(y_size + uv_size);
+      GLES20.glActiveTexture(GLES20.GL_TEXTURE2);
+      GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, mTextureIds[2]);
+      GLES20.glTexSubImage2D(GLES20.GL_TEXTURE_2D, 0, 0, 0,
+              half_width, half_height, GLES20.GL_LUMINANCE,
+              GLES20.GL_UNSIGNED_BYTE, bb);
+    } else {
+      resources.mTextureWidth = 0;
+      resources.mTextureHeight = 0;
+    }
+
+  }
+
   private void drawVideoFrameRateBar(float[] perspectiveFromWorld) {
     // When the frame rate is 90% or less of native, we interpret this as a "bad" state.
     float colorFpsFraction = Math.max(0.f, (currentFpsFraction - 0.9f) / 0.1f);
@@ -226,7 +311,7 @@ public class VideoScene {
    * seconds, based on the passed DecoderCounters object.
    *
    * @param averagingPeriodInSeconds Compute the average over this many seconds in the past.
-   * @param frameRate Native frame rate of the video.
+   * param frameRate Native frame rate of the video.
    * @param counters DecoderCounters object retrieved from the video decoder.
    */
   public void updateVideoFpsFraction(
@@ -300,7 +385,8 @@ public class VideoScene {
             + "varying vec2 vTextureCoord;\n"
             + "uniform sampler2D uImageTexture;\n"
             + "void main() {\n"
-            + "  gl_FragColor = texture2D(uImageTexture, vTextureCoord);\n"
+            + "   vec4  test = texture2D(uImageTexture, vTextureCoord);\n"
+                + "  gl_FragColor = vec4(0.0,1.0,0.0,1.0);\n"
             + "}\n";
 
     static final String SOLID_COLOR_FRAGMENT_SHADER =
@@ -310,6 +396,30 @@ public class VideoScene {
             + "void main() {\n"
             + "  gl_FragColor = uColor;\n"
             + "}\n";
+
+    //fragmentShaderCode
+    static final String FRAME_FRAGMENT_SHADER  = "precision mediump float;\n"
+            + "uniform sampler2D Ytex;\n"
+            + "uniform sampler2D Utex,Vtex;\n"
+            + "varying vec2 vTextureCoord;\n"
+            + "void main(void) {\n"
+            + "  gl_FragColor = vec4(0.0,1.0,0.0,1.0);\n"
+            + "}\n";
+
+//            + "  float nx,ny,r,g,b,y,u,v;\n"
+//            + "  mediump vec4 txl,ux,vx;"
+//            + "  nx=vTextureCoord[0];\n"
+//            + "  ny=vTextureCoord[1];\n"
+//            + "  y=texture2D(Ytex,vec2(nx,ny)).r;\n"
+//            + "  u=texture2D(Utex,vec2(nx,ny)).r;\n"
+//            + "  v=texture2D(Vtex,vec2(nx,ny)).r;\n"
+//
+//            + "  y=1.0-1.1643*(y-0.0625);\n" // Invert effect
+//             + "  y=1.1643*(y-0.0625);\n" // Normal renderer
+//
+//            + "  u=u-0.5;\n" + "  v=v-0.5;\n" + "  r=y+1.5958*v;\n"
+//            + "  g=y-0.39173*u-0.81290*v;\n" + "  b=y+2.017*u;\n"
+//            + "  gl_FragColor=vec4(r,1.0,b,1.0);\n" + "}\n";
 
     static final float[] VERTEX_DATA = {
       // X,   Y,    Z,    U, V
@@ -327,6 +437,10 @@ public class VideoScene {
 
     int solidColorProgram = 0;
     int spriteProgram = 0;
+    int frameProgram = 0;
+    int mTextureWidth = 0;
+    int mTextureHeight = 0;
+
     int loadingTextureId = 0;
     FloatBuffer vertexPositions;
     FloatBuffer vertexUVs;
@@ -338,11 +452,30 @@ public class VideoScene {
       if (solidColorProgram == 0) {
         throw new RuntimeException("Could not create video program");
       }
-      spriteProgram = GLUtil.createProgram(VERTEX_SHADER, SPRITE_FRAGMENT_SHADER);
-      if (spriteProgram == 0) {
+//      spriteProgram = GLUtil.createProgram(VERTEX_SHADER, SPRITE_FRAGMENT_SHADER);
+//      if (spriteProgram == 0) {
+//        throw new RuntimeException("Could not create sprite program");
+//      }
+
+      frameProgram = GLUtil.createProgram(VERTEX_SHADER, FRAME_FRAGMENT_SHADER);
+      if (frameProgram == 0) {
         throw new RuntimeException("Could not create sprite program");
       }
-  
+
+      GLES20.glUseProgram(frameProgram);
+      int i = GLES20.glGetUniformLocation(frameProgram, "Ytex");
+      GLES20.glUniform1i(i, 0); /* Bind Ytex to texture unit 0 */
+
+      i = GLES20.glGetUniformLocation(frameProgram, "Utex");
+      GLES20.glUniform1i(i, 1); /* Bind Utex to texture unit 1 */
+
+      i = GLES20.glGetUniformLocation(frameProgram, "Vtex");
+      GLES20.glUniform1i(i, 2); /* Bind Vtex to texture unit 2 */
+
+
+      mTextureWidth = 0;
+      mTextureHeight = 0;
+
       // Prepare vertex data.
       ByteBuffer vertices = ByteBuffer.allocateDirect(VERTEX_DATA.length * FLOAT_SIZE_BYTES)
                                 .order(ByteOrder.nativeOrder());
@@ -353,10 +486,10 @@ public class VideoScene {
       vertexUVs.position(VERTEX_DATA_UV_OFFSET);
   
       // Load the texture to be shown instead of the video while the latter is initializing.
-      int[] textureIds = new int[1];
-      GLES20.glGenTextures(1, textureIds, 0);
-      loadingTextureId = textureIds[0];
-      GLUtil.createResourceTexture(context, loadingTextureId, R.raw.loading_bg);
+//      int[] textureIds = new int[1];
+//      GLES20.glGenTextures(1, textureIds, 0);
+//      loadingTextureId = textureIds[0];
+//      GLUtil.createResourceTexture(context, loadingTextureId, R.raw.loading_bg);
     }
   }
 }

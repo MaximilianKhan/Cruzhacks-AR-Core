@@ -35,6 +35,7 @@ import com.google.vr.ndk.base.GvrApi;
 import com.google.vr.ndk.base.SwapChain;
 import com.opentok.android.BaseVideoRenderer;
 
+import java.nio.ByteBuffer;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -100,7 +101,10 @@ public class VideoSceneRenderer extends BaseVideoRenderer implements Renderer {
 
     surfaceView = new GLSurfaceView(context);
     surfaceView.setEGLContextClientVersion(2);
-    surfaceView.setEGLConfigChooser(5, 6, 5, 0, 0, 0);
+//    surfaceView.setEGLConfigChooser(5, 6, 5, 0, 0, 0);
+//
+//    mRenderer = new MyRenderer();
+//    surfaceView.setRenderer(mRenderer);
 
   }
 
@@ -205,6 +209,10 @@ public class VideoSceneRenderer extends BaseVideoRenderer implements Renderer {
           }
         }
       });
+  }
+
+  public void setStreaming(boolean status) {
+    videoScene.setStreamingStatus(status);
   }
 
   public boolean firstFrame(){
@@ -339,7 +347,7 @@ public class VideoSceneRenderer extends BaseVideoRenderer implements Renderer {
     // 0: left eye video, 1: right eye video, 2: left eye color, 3: right eye color.
     // The color viewport will be drawn on top of the video layer and will contain a transparent
     // hole where the video will be. This can be used to render controls on top of the video.
-    int colorViewportIndex = 2 + eye;
+    int colorViewportIndex = 2 + eye; // not ttwo
     viewportList.get(colorViewportIndex, scratchViewport);
     scratchViewport.getSourceUv(eyeUv);
     scratchViewport.getSourceFov(eyeFov);
@@ -358,13 +366,26 @@ public class VideoSceneRenderer extends BaseVideoRenderer implements Renderer {
     Matrix.multiplyMM(perspectiveFromWorld, 0, eyeProjection, 0, eyeFromWorld[eye], 0);
 
     // Draw the video scene.
-    videoScene.draw(perspectiveFromWorld);
+    videoScene.draw(perspectiveFromWorld, currentFrame);
 
     GLUtil.checkGlError(TAG, "draw eye");
   }
 
   @Override
   public void onFrame(com.opentok.android.BaseVideoRenderer.Frame tFrame) {
+    ByteBuffer imageBuffer = tFrame.getBuffer();
+
+    // Image buffer is represented using three planes, Y, U and V.
+    // Data is laid out in a linear way in the imageBuffer variable
+    // Y plane is first, and its size is the same of the image (width * height)
+    // U and V planes are next, in order to produce a B&W image, we set both
+    // planes with the same value.
+
+    int startU = tFrame.getWidth() * tFrame.getHeight();
+    for (int i = startU; i < imageBuffer.capacity(); i++) {
+      imageBuffer.put(i, (byte)-127);
+    }
+
     mFrameLock.lock();
     if (currentFrame != null) {
       this.currentFrame.recycle();
@@ -387,6 +408,7 @@ public class VideoSceneRenderer extends BaseVideoRenderer implements Renderer {
 
   public void setViewRenderer(){
     surfaceView.setRenderer(this);
+    surfaceView.setRenderMode(GLSurfaceView.RENDERMODE_WHEN_DIRTY);
   }
   @Override
   public void onVideoPropertiesChanged(boolean videoEnabled) {

@@ -105,6 +105,22 @@ public class GLUtil {
     bitmap.recycle();
   }
 
+  public static void initializeTexture(int name, int id, int width, int height) {
+    GLES20.glActiveTexture(name);
+    GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, id);
+    GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+            GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+    GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+            GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+    GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+            GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+    GLES20.glTexParameterf(GLES20.GL_TEXTURE_2D,
+            GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+    GLES20.glTexImage2D(GLES20.GL_TEXTURE_2D, 0, GLES20.GL_LUMINANCE,
+            width, height, 0, GLES20.GL_LUMINANCE,
+            GLES20.GL_UNSIGNED_BYTE, null);
+  }
+
   /**
    * Creates a shader from a source string.
    *
