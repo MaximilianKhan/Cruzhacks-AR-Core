@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
 import android.util.Log;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import com.google.vr.sdk.audio.GvrAudioEngine;
@@ -48,6 +49,7 @@ import java.util.Vector;
 
 import javax.microedition.khronos.egl.EGLConfig;
 
+import com.opentok.android.BaseVideoRenderer;
 import com.opentok.android.Session;
 import com.opentok.android.Stream;
 import com.opentok.android.Connection;
@@ -56,6 +58,7 @@ import com.opentok.android.OpentokError;
 import com.google.vr.sdk.samples.message.SignalMessage;
 import com.google.vr.sdk.samples.message.SignalMessageAdapter;
 import com.opentok.android.Subscriber;
+import com.opentok.android.SubscriberKit;
 
 /**
  * A Google VR sample application.
@@ -71,6 +74,7 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
                                                                 WebServiceCoordinator.Listener,
                                                                 Session.SessionListener,
                                                                 Session.SignalListener,
+                                                                SubscriberKit.SubscriberListener,
                                                                 Subscriber.VideoListener{
   private static final String LOG_TAG = TreasureHuntActivity.class.getSimpleName();
   public static final String SIGNAL_TYPE = "text-signal";
@@ -79,6 +83,7 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
   private Session mSession;
   private Subscriber mSubscriber;
+  private FrameLayout mSubscriberViewContainer;
   private SignalMessageAdapter mMessageHistory;
 
 //  private EditText mMessageEditTextView;
@@ -231,6 +236,8 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
     initializeGvrView();
 
+//    mSubscriberViewContainer = (FrameLayout)findViewById(R.id.subscriber_container);
+
     // Start the ControllerManager and acquire a Controller object which represents a single
     // physical controller. Bind our listener to the ControllerManager and Controller.
     EventListener listener = new EventListener();
@@ -343,18 +350,18 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     gvrView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
 
     gvrView.setRenderer(this);
-    gvrView.setTransitionViewEnabled(true);
+    gvrView.setTransitionViewEnabled(false);
 
     // Enable Cardboard-trigger feedback with Daydream headsets. This is a simple way of supporting
     // Daydream controller input for basic interactions using the existing Cardboard trigger API.
 //    gvrView.enableCardboardTriggerEmulation();
 
-    if (gvrView.setAsyncReprojectionEnabled(true)) {
-      // Async reprojection decouples the app framerate from the display framerate,
-      // allowing immersive interaction even at the throttled clockrates set by
-      // sustained performance mode.
-      AndroidCompat.setSustainedPerformanceMode(this, true);
-    }
+//    if (gvrView.setAsyncReprojectionEnabled(true)) {
+//      // Async reprojection decouples the app framerate from the display framerate,
+//      // allowing immersive interaction even at the throttled clockrates set by
+//      // sustained performance mode.
+//      AndroidCompat.setSustainedPerformanceMode(this, true);
+//    }
 
     setGvrView(gvrView);
   }
@@ -390,16 +397,6 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   @Override
   public void onDisconnected(Session session) {
     Log.i(LOG_TAG, "Session Disconnected");
-  }
-
-  @Override
-  public void onStreamReceived(Session session, Stream stream) {
-    Log.i(LOG_TAG, "Stream Received");
-  }
-
-  @Override
-  public void onStreamDropped(Session session, Stream stream) {
-    Log.i(LOG_TAG, "Stream Dropped");
   }
 
   @Override
@@ -443,11 +440,11 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     cubeVertices.position(108 * CUBE_COUNT);
     cubeColors.position(144 * CUBE_COUNT);
     cubeNormals.position(108 * CUBE_COUNT);
-    for (int i = 0; i < cubesAdded; i++) {
+    for (int i = 0; i < cubesAdded; i += 4) {
       cubeVertices.put(WorldLayoutData.getCubeCoords(
               -data[i+2] * OFFSET,
               data[i+1] * OFFSET,
-              (-data[i] * OFFSET) - OFFSET_Z,
+              (-data[i] * OFFSET) + OFFSET_Z,
               data[i+3] * OFFSET
       ));
       cubeColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
@@ -460,8 +457,8 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     CUBE_COUNT += cubesAdded;
   }
 
-  private static final float OFFSET = 30.0f;
-  private static final float OFFSET_Z = OFFSET * 2.5f;
+  private static final float OFFSET = 10.0f;
+  private static final float OFFSET_Z = 10.0f;
 
   private void clearCubes() {
 
@@ -1008,4 +1005,116 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
     }
   }
+
+  @Override
+  public void onStreamReceived(Session session, Stream stream) {
+    Log.d("ABC", "onStreamReceived: New stream " + stream.getStreamId() + " in session " + session.getSessionId());
+
+//    if (OpenTokConfig.SUBSCRIBE_TO_SELF) {
+//      return;
+//    }
+    if (mSubscriber != null) {
+      return;
+    }
+
+    subscribeToStream(stream);
+  }
+
+  @Override
+  public void onStreamDropped(Session session, Stream stream) {
+    Log.d("ABC", "onStreamDropped: Stream " + stream.getStreamId() + " dropped from session " + session.getSessionId());
+
+//    if (OpenTokConfig.SUBSCRIBE_TO_SELF) {
+//      return;
+//    }
+    if (mSubscriber == null) {
+      return;
+    }
+
+    if (mSubscriber.getStream().equals(stream)) {
+//      mSubscriberViewContainer.removeView(mSubscriber.getView());
+      mSubscriber.destroy();
+      mSubscriber = null;
+    }
+  }
+
+  @Override
+  public void onVideoDataReceived(SubscriberKit subscriberKit) {
+    Log.d("ABC", "onVideoDataReceived ");
+//    mSubscriber.setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE, BaseVideoRenderer.STYLE_VIDEO_FILL);
+//    mSubscriberViewContainer.addView(mSubscriber.getView());
+  }
+
+  @Override
+  public void onVideoDisabled(SubscriberKit subscriberKit, String s) {
+
+    Log.d("ABC", "onVideoDisabled ");
+  }
+
+  @Override
+  public void onVideoEnabled(SubscriberKit subscriberKit, String s) {
+
+    Log.d("ABC", "onVideoEnabled ");
+  }
+
+  @Override
+  public void onVideoDisableWarning(SubscriberKit subscriberKit) {
+
+    Log.d("ABC", "onVideoDisableWarning ");
+  }
+
+  @Override
+  public void onVideoDisableWarningLifted(SubscriberKit subscriberKit) {
+
+    Log.d("ABC", "onVideoDisableWarningLifted ");
+  }
+
+  private void subscribeToStream(Stream stream) {
+    Log.d("ABC", "subscribeToStream ");
+//    mSubscriber = new Subscriber.Builder(TreasureHuntActivity.this, stream).build();
+//    mSubscriber.setVideoListener(this);
+//    mSession.subscribe(mSubscriber);
+    mSubscriber = new Subscriber.Builder(this, stream).build();
+    mSubscriber.getRenderer().setStyle(BaseVideoRenderer.STYLE_VIDEO_SCALE, BaseVideoRenderer.STYLE_VIDEO_FILL);
+    mSubscriber.setSubscriberListener(this);
+    mSession.subscribe(mSubscriber);
+//    mSubscriberViewContainer.addView(mSubscriber.getView());
+  }
+
+  private void disconnectSession() {
+    Log.d("ABC", "disconnectSession ");
+    if (mSession == null) {
+      return;
+    }
+
+    if (mSubscriber != null) {
+//      mSubscriberViewContainer.removeView(mSubscriber.getView());
+      mSession.unsubscribe(mSubscriber);
+      mSubscriber.destroy();
+      mSubscriber = null;
+    }
+
+    mSession.disconnect();
+  }
+
+  @Override
+  public void onConnected(SubscriberKit subscriberKit) {
+
+    Log.d("ABC", "onConnected: Subscriber connected. Stream: "+subscriberKit.getStream().getStreamId());
+  }
+
+  @Override
+  public void onDisconnected(SubscriberKit subscriberKit) {
+
+    Log.d("ABC", "onDisconnected: Subscriber disconnected. Stream: "+subscriberKit.getStream().getStreamId());
+  }
+
+  @Override
+  public void onError(SubscriberKit subscriberKit, OpentokError opentokError) {
+
+    Log.e("ABC", "onError: "+opentokError.getErrorDomain() + " : " +
+            opentokError.getErrorCode() +  " - "+opentokError.getMessage());
+
+  }
+
 }

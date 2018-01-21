@@ -17,7 +17,6 @@ package com.fricke.spencer.zenbag;
 
 import android.app.Activity;
 import android.net.Uri;
-import android.opengl.GLSurfaceView;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -33,10 +32,9 @@ import com.google.vr.ndk.base.GvrLayout.ExternalSurfaceListener;
 import android.util.Log;
 
 import com.opentok.android.BaseVideoRenderer;
+import com.opentok.android.Connection;
 import com.opentok.android.Session;
 import com.opentok.android.Stream;
-import com.opentok.android.Publisher;
-import com.opentok.android.PublisherKit;
 import com.opentok.android.Subscriber;
 import com.opentok.android.OpentokError;
 import com.opentok.android.SubscriberKit;
@@ -46,11 +44,16 @@ import android.Manifest;
 import pub.devrel.easypermissions.AfterPermissionGranted;
 import pub.devrel.easypermissions.EasyPermissions;
 
+import com.fricke.spencer.message.SignalMessage;
+import com.fricke.spencer.message.SignalMessageAdapter;
+
 // delete, for testing
 import android.widget.FrameLayout;
 
-public class WatchVideoActivity extends Activity
-        implements  Session.SessionListener, SubscriberKit.SubscriberListener, SubscriberKit.VideoListener {
+public class WatchVideoActivity extends Activity implements Session.SessionListener,
+                                                            Session.SignalListener,
+                                                            SubscriberKit.SubscriberListener,
+                                                            SubscriberKit.VideoListener {
 
   private static final String TAG = WatchVideoActivity.class.getSimpleName();
 
@@ -61,15 +64,18 @@ public class WatchVideoActivity extends Activity
 //  private boolean hasFirstFrame;
 
   private static String API_KEY = "46043442";
-  private static String SESSION_ID = "1_MX40NjA0MzQ0Mn5-MTUxNjQ5NDY1NjE5OH51VktTd0ZIRXpXT2pKREpCUFhGeHpxUzh-fg";
-  private static String TOKEN = "T1==cGFydG5lcl9pZD00NjA0MzQ0MiZzaWc9ZmI5MzkzNGE4YTc0NDBhZDZhODdkMTUzYmRjNjg1MzYzYTE2NDNjZTpzZXNzaW9uX2lkPTFfTVg0ME5qQTBNelEwTW41LU1UVXhOalE1TkRZMU5qRTVPSDUxVmt0VGQwWklSWHBYVDJwS1JFcENVRmhHZUhweFV6aC1mZyZjcmVhdGVfdGltZT0xNTE2NDk0Njc4Jm5vbmNlPTAuNDg4ODQzMjg4OTI1MTA1MyZyb2xlPXB1Ymxpc2hlciZleHBpcmVfdGltZT0xNTE5MDg2Njc4JmluaXRpYWxfbGF5b3V0X2NsYXNzX2xpc3Q9";
+  private static String SESSION_ID = "2_MX40NjA0MzQ0Mn5-MTUxNjUzMTU4NjU3NH55bDgrWi8vcGxMaHpZeldrMW8rYWJwQ0t-fg";
+  private static String TOKEN = "T1==cGFydG5lcl9pZD00NjA0MzQ0MiZzaWc9YjFmOTA0MDJiY2JmNjVjZTFhMDMzMGM1NDE5ZTI0Y2YxNWIwNDE5NjpzZXNzaW9uX2lkPTJfTVg0ME5qQTBNelEwTW41LU1UVXhOalV6TVRVNE5qVTNOSDU1YkRncldpOHZjR3hNYUhwWmVsZHJNVzhyWVdKd1EwdC1mZyZjcmVhdGVfdGltZT0xNTE2NTMxNjA1Jm5vbmNlPTAuMDQzMTI5NzEzMDY1MTkzNTMmcm9sZT1tb2RlcmF0b3ImZXhwaXJlX3RpbWU9MTUxNzEzNjQwNCZpbml0aWFsX2xheW91dF9jbGFzc19saXN0PQ==";
   private static final String LOG_TAG = WatchVideoActivity.class.getSimpleName();
   private static final int RC_SETTINGS_SCREEN_PERM = 123;
   private static final int RC_VIDEO_APP_PERM = 124;
+
   private Session mSession;
 //  private FrameLayout mPublisherViewContainer;
   private FrameLayout mSubscriberViewContainer;
   private Subscriber mSubscriber;
+
+  private SignalMessageAdapter mMessageHistory;
 
   // Transform a quad that fills the clip box at Z=0 to a 16:9 screen at Z=-4. Note that the matrix
   // is column-major, so the translation is on the last row rather than the last column in this
@@ -183,6 +189,36 @@ public class WatchVideoActivity extends Activity
     requestPermissions();
   }
 
+  @Override
+  public void onSignalReceived(Session session, String type, String data, Connection connection) {
+    boolean remote = !connection.equals(mSession.getConnection());
+    Log.i(TAG, "SIGNAL DATA TEXT");
+    Log.i(TAG, type);
+
+    if (type.equals("1".toString())) {
+      Log.i(TAG, "A");
+    }
+
+    if (type.compareTo("1") == 0) {
+      Log.i(TAG, "B");
+    }
+    if (type != null && type.equals("1")) {
+      Log.i(TAG, "V");
+    } else if (type != null && type.equals("0")) {
+      Log.i(TAG, "CLEAR");
+    }
+
+    SignalMessage message = new SignalMessage(data, remote);
+    mMessageHistory.add(message);
+
+    if (data.length() > 10) {
+      Log.i(TAG, data.substring(0, 10));
+    } else {
+      Log.i(TAG, "NOPPOO");
+    }
+
+  }
+
   private void initVideoPlayer() {
     videoPlayer = new VideoExoPlayer2(getApplication(), settings);
     Uri streamUri;
@@ -225,6 +261,7 @@ public class WatchVideoActivity extends Activity
     renderer.onResume();
     gvrLayout.onResume();
 
+    onPause();
     // Refresh the viewer profile in case the viewer params were changed.
 
     // Runnable to refresh the viewer profile when gvrLayout is resumed.
@@ -241,9 +278,9 @@ public class WatchVideoActivity extends Activity
   @Override
   protected void onResume() {
     super.onResume();
-    if (videoPlayer.isPaused()) {
-      videoPlayer.play();
-    }
+//    if (videoPlayer.isPaused()) {
+//      videoPlayer.play();
+//    }
   }
 
   @Override
@@ -346,6 +383,7 @@ public class WatchVideoActivity extends Activity
       // initialize and connect to the session
       mSession = new Session.Builder(this, API_KEY, SESSION_ID).build();
       mSession.setSessionListener(this);
+      mSession.setSignalListener(this);
       mSession.connect(TOKEN);
 
 

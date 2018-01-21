@@ -21,10 +21,8 @@ allprojects {
     repositories {
         // For GVR components, the official source of the .aars is JCenter.
         jcenter()
-        maven {
-            url 'https://maven.google.com'
-            url  'https://tokbox.bintray.com/maven'
-        }
+        maven { url 'https://maven.google.com' }
+        maven { url 'https://tokbox.bintray.com/maven' }
         // You can also use a local Maven repository if desired.
         mavenLocal()
         maven {
