@@ -4,6 +4,10 @@ buildscript {
     // This configures the Gradle build system, but not the GVR components.
     repositories {
         jcenter()
+        maven {
+            url 'https://maven.google.com/'
+            name 'Google'
+        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle-experimental:0.9.3'
@@ -18,11 +22,15 @@ allprojects {
         // For GVR components, the official source of the .aars is JCenter.
         jcenter()
         maven {
-            // For Android support library components.
-            url "https://maven.google.com"
+            url 'https://maven.google.com'
+            url  'https://tokbox.bintray.com/maven'
         }
         // You can also use a local Maven repository if desired.
         mavenLocal()
+        maven {
+            url 'https://maven.google.com/'
+            name 'Google'
+        }
     }
 }
 
