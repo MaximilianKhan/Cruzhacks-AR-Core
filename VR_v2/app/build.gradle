@@ -40,4 +40,8 @@ dependencies {
     compile 'com.google.vr:sdk-audio:1.120.0'
     compile 'com.google.vr:sdk-base:1.120.0'
     compile 'com.google.vr:sdk-controller:1.120.0'
+
+    compile 'com.opentok.android:opentok-android-sdk:2.12.+'
+    compile 'com.android.support:appcompat-v7:26.1.0'
+    compile 'com.android.volley:volley:1.0.0'
 }

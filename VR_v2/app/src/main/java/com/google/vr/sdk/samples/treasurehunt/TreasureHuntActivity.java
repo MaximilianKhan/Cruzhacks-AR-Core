@@ -16,13 +16,17 @@
 
 package com.google.vr.sdk.samples.treasurehunt;
 
+import android.app.AlertDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.opengl.GLES20;
 import android.opengl.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Vibrator;
 import android.util.Log;
+import android.widget.LinearLayout;
+
 import com.google.vr.sdk.audio.GvrAudioEngine;
 import com.google.vr.sdk.base.AndroidCompat;
 import com.google.vr.sdk.base.Eye;
@@ -44,6 +48,15 @@ import java.util.Vector;
 
 import javax.microedition.khronos.egl.EGLConfig;
 
+import com.opentok.android.Session;
+import com.opentok.android.Stream;
+import com.opentok.android.Connection;
+import com.opentok.android.OpentokError;
+
+import com.google.vr.sdk.samples.message.SignalMessage;
+import com.google.vr.sdk.samples.message.SignalMessageAdapter;
+import com.opentok.android.Subscriber;
+
 /**
  * A Google VR sample application.
  *
@@ -54,7 +67,23 @@ import javax.microedition.khronos.egl.EGLConfig;
  * controller-based trigger emulation. Activating the trigger will in turn
  * randomly reposition the cube.
  */
-public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoRenderer {
+public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoRenderer,
+                                                                WebServiceCoordinator.Listener,
+                                                                Session.SessionListener,
+                                                                Session.SignalListener,
+                                                                Subscriber.VideoListener{
+  private static final String LOG_TAG = TreasureHuntActivity.class.getSimpleName();
+  public static final String SIGNAL_TYPE = "text-signal";
+
+  private WebServiceCoordinator mWebServiceCoordinator;
+
+  private Session mSession;
+  private Subscriber mSubscriber;
+  private SignalMessageAdapter mMessageHistory;
+
+//  private EditText mMessageEditTextView;
+//  private ListView mMessageHistoryListView;
+  //// ^^^^ Tokbox /////////
 
   protected float[] modelCube;
   protected float[] modelPosition;
@@ -146,12 +175,6 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   private static boolean yButton;
   private static boolean zButton;
 
-
-  // temp
-  private  static float drawGap = 1.0f;
-  private static Vector<Float> drawBuffer = new Vector(512, 64);
-
-
   /**
    * Converts a raw text file, saved as a resource, into an OpenGL ES shader.
    *
@@ -208,8 +231,6 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
     initializeGvrView();
 
-    initDrawBuffer();
-
     // Start the ControllerManager and acquire a Controller object which represents a single
     // physical controller. Bind our listener to the ControllerManager and Controller.
     EventListener listener = new EventListener();
@@ -234,20 +255,39 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
     // Initialize 3D audio engine.
     gvrAudioEngine = new GvrAudioEngine(this, GvrAudioEngine.RenderingMode.BINAURAL_HIGH_QUALITY);
-  }
 
-  private void initDrawBuffer() {
-    drawBuffer.addElement(2.0f);
-    drawBuffer.addElement(0.0f);
-    drawBuffer.addElement(2.0f);
-    drawBuffer.addElement(3.0f);
-    drawBuffer.addElement(0.0f);
-    drawBuffer.addElement(2.0f);
-    drawBuffer.addElement(3.0f);
-    drawBuffer.addElement(0.0f);
-    drawBuffer.addElement(.0f);
-  }
 
+
+
+    //// TOKBOX ///
+    // inflate views
+//    mMessageEditTextView = (EditText)findViewById(R.id.message_edit_text);
+//    mMessageHistoryListView = (ListView)findViewById(R.id.message_history_list_view);
+
+    // Attach data source to message history
+    mMessageHistory = new SignalMessageAdapter(this);
+
+    // initialize the session after validating configs
+
+    // if there is no server URL assiged
+    if (OpenTokConfig.CHAT_SERVER_URL == null) {
+      // use hard coded session info
+      if (OpenTokConfig.areHardCodedConfigsValid()) {
+        initializeSession(OpenTokConfig.API_KEY, OpenTokConfig.SESSION_ID, OpenTokConfig.TOKEN);
+      } else {
+        showConfigError("Configuration Error", OpenTokConfig.hardCodedConfigErrorMessage);
+      }
+    } else {
+      // otherwise initialize WebServiceCoordinator and kick off request for session data
+      // session initialization occurs once data is returned, in onSessionConnectionDataReady
+      if (OpenTokConfig.isWebServerConfigUrlValid()) {
+        mWebServiceCoordinator = new WebServiceCoordinator(this, this);
+        mWebServiceCoordinator.fetchSessionConnectionData(OpenTokConfig.SESSION_INFO_ENDPOINT);
+      } else {
+        showConfigError("Configuration Error", OpenTokConfig.webServerConfigErrorMessage);
+      }
+    }
+  }
   @Override
   protected void onStart() {
     super.onStart();
@@ -259,6 +299,41 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   protected void onStop() {
     controllerManager.stop();
     super.onStop();
+  }
+
+  private void initializeSession(String apiKey, String sessionId, String token) {
+
+    Log.d(LOG_TAG, "Initializing Session");
+
+    mSession = new Session.Builder(this, apiKey, sessionId).build();
+    mSession.setSessionListener(this);
+    mSession.setSignalListener(this);
+    mSession.connect(token);
+  }
+
+  private void sendMessage() {
+
+    Log.d(LOG_TAG, "Send Message");
+
+//    SignalMessage signal = new SignalMessage(mMessageEditTextView.getText().toString());
+//    mSession.sendSignal(SIGNAL_TYPE, signal.getMessageText());
+
+//    mMessageEditTextView.setText("");
+
+  }
+
+  private void showMessage(String messageData, boolean remote) {
+
+    Log.d(LOG_TAG, "Show Message");
+
+    SignalMessage message = new SignalMessage(messageData, remote);
+    mMessageHistory.add(message);
+  }
+
+  private void logOpenTokError(OpentokError opentokError) {
+
+    Log.e(LOG_TAG, "Error Domain: " + opentokError.getErrorDomain().name());
+    Log.e(LOG_TAG, "Error Code: " + opentokError.getErrorCode().name());
   }
 
   public void initializeGvrView() {
@@ -288,12 +363,145 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   public void onPause() {
     gvrAudioEngine.pause();
     super.onPause();
+
+    if (mSession != null) {
+      mSession.onPause();
+    }
   }
 
   @Override
   public void onResume() {
     super.onResume();
     gvrAudioEngine.resume();
+
+    if (mSession != null) {
+      mSession.onResume();
+    }
+  }
+
+  /* Session Listener methods */
+
+  @Override
+  public void onConnected(Session session) {
+    Log.i(LOG_TAG, "Session Connected");
+//    mMessageEditTextView.setEnabled(true);
+  }
+
+  @Override
+  public void onDisconnected(Session session) {
+    Log.i(LOG_TAG, "Session Disconnected");
+  }
+
+  @Override
+  public void onStreamReceived(Session session, Stream stream) {
+    Log.i(LOG_TAG, "Stream Received");
+  }
+
+  @Override
+  public void onStreamDropped(Session session, Stream stream) {
+    Log.i(LOG_TAG, "Stream Dropped");
+  }
+
+  @Override
+  public void onError(Session session, OpentokError opentokError) {
+    logOpenTokError(opentokError);
+  }
+
+
+  /* Signal Listener methods */
+
+  @Override
+  public void onSignalReceived(Session session, String type, String data, Connection connection) {
+
+    if (type.compareTo("0") == 0) {
+      Log.i("ABC", "CLEAR: " + type);
+      clearCubes();
+    } else {
+      String[] token = data.split(",");
+      Log.i("ABC", "Data Length: " + data.length());
+
+      float[] cubeData = new float[token.length];
+      for (int i = 0; i < cubeData.length; i++) {
+        cubeData[i] = Float.parseFloat(token[i]);
+      }
+      addCubes(cubeData);
+    }
+    boolean remote = !connection.equals(mSession.getConnection());
+    if (type != null && type.equals(SIGNAL_TYPE)) {
+      showMessage(data, remote);
+    }
+  }
+
+  private void addCubes(float[] data) {
+    int cubesAdded = data.length / 4;
+
+    if (CUBE_COUNT + cubesAdded > MAX_CUBES) {
+      Log.i("ABC", "OUUT OF MEMORYT");
+      return; //throw new Error("Out of memory");
+    }
+
+    cubeVertices.position(108 * CUBE_COUNT);
+    cubeColors.position(144 * CUBE_COUNT);
+    cubeNormals.position(108 * CUBE_COUNT);
+    for (int i = 0; i < cubesAdded; i++) {
+      cubeVertices.put(WorldLayoutData.getCubeCoords(
+              -data[i+2] * OFFSET,
+              data[i+1] * OFFSET,
+              (-data[i] * OFFSET) - OFFSET_Z,
+              data[i+3] * OFFSET
+      ));
+      cubeColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
+      cubeNormals.put(WorldLayoutData.CUBE_NORMALS);
+    }
+    cubeVertices.position(0);
+    cubeColors.position(0);
+    cubeNormals.position(0);
+
+    CUBE_COUNT += cubesAdded;
+  }
+
+  private static final float OFFSET = 30.0f;
+  private static final float OFFSET_Z = OFFSET * 2.5f;
+
+  private void clearCubes() {
+
+    CUBE_COUNT = 1; // just main cube
+
+    cubeVertices.position(0);
+    cubeColors.position(0);
+    cubeNormals.position(0);
+  }
+
+    /* Web Service Coordinator delegate methods */
+
+  @Override
+  public void onSessionConnectionDataReady(String apiKey, String sessionId, String token) {
+
+    Log.d(LOG_TAG, "ApiKey: "+apiKey + " SessionId: "+ sessionId + " Token: "+token);
+
+    initializeSession(apiKey, sessionId, token);
+  }
+
+  @Override
+  public void onWebServiceCoordinatorError(Exception error) {
+    showConfigError("Web Service error", error.getMessage());
+  }
+
+    /* alert dialogue for errors */
+
+  private void showConfigError(String alertTitle, final String errorMessage) {
+
+    Log.e(LOG_TAG, "Error " + alertTitle + ": " + errorMessage);
+    new AlertDialog.Builder(this)
+            .setTitle(alertTitle)
+            .setMessage(errorMessage)
+            .setPositiveButton("ok", new DialogInterface.OnClickListener() {
+              public void onClick(DialogInterface dialog, int which) {
+                TreasureHuntActivity.this.finish();
+              }
+            })
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .show();
   }
 
   @Override
@@ -474,7 +682,7 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     return null;
   }
 
-  private static final float MOVE_FACTOR = 0.1f;
+  private static final float MOVE_FACTOR = 0.3f;
   private static final float MAX_MOVE = 30.0f;
   private  static boolean test = false;
   /**
@@ -505,58 +713,29 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
               1.0f, 5.0f, 12.0f,
               1.0f, 5.0f, 16.0f,
       };
-      int cubesAdded = data.length / 3;
 
-      if (CUBE_COUNT + cubesAdded > MAX_CUBES) {
-        Log.i("ABC", "OUUT OF MEMORYT");
-        return; //throw new Error("Out of memory");
-      }
-
-
-      cubeVertices.position(108 * CUBE_COUNT);
-      cubeColors.position(144 * CUBE_COUNT);
-      cubeNormals.position(108 * CUBE_COUNT);
-      for (int i = 0; i < cubesAdded; i++) {
-        cubeVertices.put(WorldLayoutData.getCubeCoords(data[i], data[i+1], data[i+2]));
-        cubeColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
-        cubeNormals.put(WorldLayoutData.CUBE_NORMALS);
-      }
-
-      cubeVertices.position(0);
-      cubeColors.position(0);
-      cubeNormals.position(0);
-
-      CUBE_COUNT += cubesAdded;
     }
 
-
     if (yButton) {
+      Log.i("ABC", "cube count: " + CUBE_COUNT);
+
       xHead = 0;
       zHead = 0;
     }
 
-    if (xTouch > 0.8) {
-      xHead -= MOVE_FACTOR;
-    } else if (xTouch < 0.2) {
-      xHead += MOVE_FACTOR;
+    // 0.5 represents a full move factor
+    if (xTouch < 0.50) {
+      xHead += ( (0.5 - xTouch)/0.5 )  * MOVE_FACTOR; // 0 == + 1
+    } else {
+      // When it is greater than 0.50
+      xHead -= ( (xTouch - 0.5)/0.5 ) * MOVE_FACTOR; // 1 == 0;
     }
 
-    if (yTouch > 0.8) {
-      zHead -= MOVE_FACTOR;
-    } else if (yTouch < 0.2) {
-      zHead += MOVE_FACTOR;
-    }
-
-    if (xTouch > 0.6 && xTouch > 0.6 && xTouch > 0.6 && xTouch > 0.6 && ) {
-      xHead -= MOVE_FACTOR;
-    } else if (xTouch < 0.2) {
-      xHead += MOVE_FACTOR;
-    }
-
-    if (yTouch > 0.8) {
-      zHead -= MOVE_FACTOR;
-    } else if (yTouch < 0.2) {
-      zHead += MOVE_FACTOR;
+    if (yTouch < 0.50) {
+      zHead += ( (0.5 - yTouch)/0.5 ) * MOVE_FACTOR;
+    } else {
+      // When it is greater than 0.50
+      zHead -= ( (yTouch - 0.5)/0.5 ) * MOVE_FACTOR;
     }
 
     if (xHead > MAX_MOVE ) { xHead = MAX_MOVE; }
@@ -584,9 +763,9 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     checkGLError("onReadyToDraw");
   }
 
-  private static final float ROTATE_FACTOR = .05f;
+  private static final float ROTATE_FACTOR = 0.1f;
   protected void setCubeRotation() {
-    Matrix.rotateM(modelCube, 0, TIME_DELTA, 0.0f, ROTATE_FACTOR, 0.0f);
+//    Matrix.rotateM(modelCube, 0, TIME_DELTA, 0.0f, ROTATE_FACTOR, 0.0f);
   }
 
   /**

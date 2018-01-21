@@ -1,0 +1,27 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:keepScreenOn="true"
+    android:layout_height="match_parent" tools:context=".TreasureHuntActivity">
+
+    <ListView
+        android:id="@+id/message_history_list_view"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/message_edit_text"
+        android:transcriptMode="alwaysScroll"
+         />
+
+    <EditText
+        android:id="@+id/message_edit_text"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:enabled="false"
+        android:hint="Message"
+        android:imeOptions="actionDone"
+        android:inputType="text"
+        android:maxLines="1" />
+
+</RelativeLayout>
