@@ -40,6 +40,8 @@ import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
+import java.util.Vector;
+
 import javax.microedition.khronos.egl.EGLConfig;
 
 /**
@@ -92,6 +94,7 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   private FloatBuffer cubeColors;
   private FloatBuffer cubeFoundColors;
   private FloatBuffer cubeNormals;
+  private FloatBuffer drawVertices;
 
   private int cubeProgram;
   private int floorProgram;
@@ -142,6 +145,13 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   private static boolean bButton;
   private static boolean yButton;
   private static boolean zButton;
+
+
+  // temp
+  private  static float drawGap = 1.0f;
+  private static Vector<Float> drawBuffer = new Vector(512, 64);
+
+
   /**
    * Converts a raw text file, saved as a resource, into an OpenGL ES shader.
    *
@@ -198,6 +208,8 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
     initializeGvrView();
 
+    initDrawBuffer();
+
     // Start the ControllerManager and acquire a Controller object which represents a single
     // physical controller. Bind our listener to the ControllerManager and Controller.
     EventListener listener = new EventListener();
@@ -222,6 +234,18 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
     // Initialize 3D audio engine.
     gvrAudioEngine = new GvrAudioEngine(this, GvrAudioEngine.RenderingMode.BINAURAL_HIGH_QUALITY);
+  }
+
+  private void initDrawBuffer() {
+    drawBuffer.addElement(2.0f);
+    drawBuffer.addElement(0.0f);
+    drawBuffer.addElement(2.0f);
+    drawBuffer.addElement(3.0f);
+    drawBuffer.addElement(0.0f);
+    drawBuffer.addElement(2.0f);
+    drawBuffer.addElement(3.0f);
+    drawBuffer.addElement(0.0f);
+    drawBuffer.addElement(.0f);
   }
 
   @Override
@@ -282,6 +306,8 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     Log.i(TAG, "onSurfaceChanged");
   }
 
+  private static final int MAX_CUBES = 1000;
+  private static int CUBE_COUNT = 1; // main cube is given no matter what
   /**
    * Creates the buffers we use to store information about the 3D world.
    *
@@ -295,17 +321,18 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     Log.i(TAG, "onSurfaceCreated");
     GLES20.glClearColor(0.1f, 0.1f, 0.1f, 0.5f); // Dark background so text shows up well.
 
-    ByteBuffer bbVertices = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_COORDS.length * 4);
+    ByteBuffer bbVertices = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_COORDS.length * 4 * MAX_CUBES);
     bbVertices.order(ByteOrder.nativeOrder());
     cubeVertices = bbVertices.asFloatBuffer();
     cubeVertices.put(WorldLayoutData.CUBE_COORDS);
-    cubeVertices.position(0);
+    cubeVertices.position(0); // 108
 
-    ByteBuffer bbColors = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_COLORS.length * 4);
+
+    ByteBuffer bbColors = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_COLORS.length * 4  * MAX_CUBES);
     bbColors.order(ByteOrder.nativeOrder());
     cubeColors = bbColors.asFloatBuffer();
     cubeColors.put(WorldLayoutData.CUBE_COLORS);
-    cubeColors.position(0);
+    cubeColors.position(0); // 144
 
     ByteBuffer bbFoundColors =
         ByteBuffer.allocateDirect(WorldLayoutData.CUBE_FOUND_COLORS.length * 4);
@@ -314,11 +341,11 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     cubeFoundColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
     cubeFoundColors.position(0);
 
-    ByteBuffer bbNormals = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_NORMALS.length * 4);
+    ByteBuffer bbNormals = ByteBuffer.allocateDirect(WorldLayoutData.CUBE_NORMALS.length * 4  * MAX_CUBES);
     bbNormals.order(ByteOrder.nativeOrder());
     cubeNormals = bbNormals.asFloatBuffer();
     cubeNormals.put(WorldLayoutData.CUBE_NORMALS);
-    cubeNormals.position(0);
+    cubeNormals.position(0); // 108
 
     // make a floor
     ByteBuffer bbFloorVertices = ByteBuffer.allocateDirect(WorldLayoutData.FLOOR_COORDS.length * 4);
@@ -449,6 +476,7 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
 
   private static final float MOVE_FACTOR = 0.1f;
   private static final float MAX_MOVE = 30.0f;
+  private  static boolean test = false;
   /**
    * Prepares OpenGL ES before we draw a frame.
    *
@@ -458,12 +486,68 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
   public void onNewFrame(HeadTransform headTransform) {
     setCubeRotation();
 
+    // ADD SOMEF CUBVEFSEFV
+    if (aButton) {
+      if (test) {return;}
+      test = true;
+
+      float[] data = { 1.0f, 1.0f, 1.0f,
+              1.0f, 2.0f, 1.0f,
+              1.0f, 3.0f, 1.0f,
+              1.0f, 4.0f, 1.0f,
+              1.0f, 5.0f, 1.0f,
+              2.0f, 1.0f, 1.0f,
+              4.0f, 5.0f, 1.0f,
+              6.0f, 5.0f, 1.0f,
+              8.0f, 5.0f, 1.0f,
+              1.0f, 5.0f, 4.0f,
+              1.0f, 5.0f, 8.0f,
+              1.0f, 5.0f, 12.0f,
+              1.0f, 5.0f, 16.0f,
+      };
+      int cubesAdded = data.length / 3;
+
+      if (CUBE_COUNT + cubesAdded > MAX_CUBES) {
+        Log.i("ABC", "OUUT OF MEMORYT");
+        return; //throw new Error("Out of memory");
+      }
+
+
+      cubeVertices.position(108 * CUBE_COUNT);
+      cubeColors.position(144 * CUBE_COUNT);
+      cubeNormals.position(108 * CUBE_COUNT);
+      for (int i = 0; i < cubesAdded; i++) {
+        cubeVertices.put(WorldLayoutData.getCubeCoords(data[i], data[i+1], data[i+2]));
+        cubeColors.put(WorldLayoutData.CUBE_FOUND_COLORS);
+        cubeNormals.put(WorldLayoutData.CUBE_NORMALS);
+      }
+
+      cubeVertices.position(0);
+      cubeColors.position(0);
+      cubeNormals.position(0);
+
+      CUBE_COUNT += cubesAdded;
+    }
+
+
     if (yButton) {
       xHead = 0;
       zHead = 0;
     }
 
     if (xTouch > 0.8) {
+      xHead -= MOVE_FACTOR;
+    } else if (xTouch < 0.2) {
+      xHead += MOVE_FACTOR;
+    }
+
+    if (yTouch > 0.8) {
+      zHead -= MOVE_FACTOR;
+    } else if (yTouch < 0.2) {
+      zHead += MOVE_FACTOR;
+    }
+
+    if (xTouch > 0.6 && xTouch > 0.6 && xTouch > 0.6 && xTouch > 0.6 && ) {
       xHead -= MOVE_FACTOR;
     } else if (xTouch < 0.2) {
       xHead += MOVE_FACTOR;
@@ -572,7 +656,7 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
     GLES20.glEnableVertexAttribArray(cubeNormalParam);
     GLES20.glEnableVertexAttribArray(cubeColorParam);
 
-    GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 36);
+    GLES20.glDrawArrays(GLES20.GL_TRIANGLES, 0, 36 * CUBE_COUNT);
 
     // Disable vertex arrays
     GLES20.glDisableVertexAttribArray(cubePositionParam);
@@ -730,7 +814,6 @@ public class TreasureHuntActivity extends GvrActivity implements GvrView.StereoR
       controller.orientation.toYawPitchRollDegrees(angles);
 
       if (controller.isTouching) {
-        Log.i("ABC", "TOUCH");
 
         xTouch = controller.touch.x;
         yTouch = controller.touch.y;

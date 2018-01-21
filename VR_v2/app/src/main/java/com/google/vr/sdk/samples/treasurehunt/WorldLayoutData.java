@@ -22,6 +22,62 @@ package com.google.vr.sdk.samples.treasurehunt;
 public final class WorldLayoutData {
 
   private static final float CUBE_SIZE = 3.0f;
+  private static final float DRAW_SIZE = 0.5f;
+
+  public static float[] getCubeCoords(float x, float y, float z) {
+    float[] ret = {
+            // Front face
+            -DRAW_SIZE + x,  DRAW_SIZE + y, DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, DRAW_SIZE + z,
+            DRAW_SIZE + x,  DRAW_SIZE + y, DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y, DRAW_SIZE + z,
+            DRAW_SIZE + x,  DRAW_SIZE + y, DRAW_SIZE + z,
+
+            // Right face
+            DRAW_SIZE + x,  DRAW_SIZE + y,  DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y,  DRAW_SIZE + z,
+            DRAW_SIZE + x,  DRAW_SIZE + y, -DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y,  DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            DRAW_SIZE + x,  DRAW_SIZE + y, -DRAW_SIZE + z,
+
+            // Back face
+            DRAW_SIZE + x,  DRAW_SIZE + y, -DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x,  DRAW_SIZE + y, -DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x,  DRAW_SIZE + y, -DRAW_SIZE + z,
+
+            // Left face
+            -DRAW_SIZE + x,  DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x,  DRAW_SIZE + y,  DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y,  DRAW_SIZE + z,
+            -DRAW_SIZE + x,  DRAW_SIZE + y,  DRAW_SIZE + z,
+
+            // Top face
+            -DRAW_SIZE + x, DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x, DRAW_SIZE + y,  DRAW_SIZE + z,
+            DRAW_SIZE + x, DRAW_SIZE + y, -DRAW_SIZE + z,
+            -DRAW_SIZE + x, DRAW_SIZE + y,  DRAW_SIZE + z,
+            DRAW_SIZE + x, DRAW_SIZE + y,  DRAW_SIZE + z,
+            DRAW_SIZE + x, DRAW_SIZE + y, -DRAW_SIZE + z,
+
+            // Bottom face
+            DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y,  DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+            DRAW_SIZE + x, -DRAW_SIZE + y,  DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y,  DRAW_SIZE + z,
+            -DRAW_SIZE + x, -DRAW_SIZE + y, -DRAW_SIZE + z,
+    };
+
+    return ret;
+  }
+
   public static final float[] CUBE_COORDS = new float[] {
       // Front face
       -CUBE_SIZE, CUBE_SIZE, CUBE_SIZE,
@@ -70,6 +126,56 @@ public final class WorldLayoutData {
       CUBE_SIZE, -CUBE_SIZE, CUBE_SIZE,
       -CUBE_SIZE, -CUBE_SIZE, CUBE_SIZE,
       -CUBE_SIZE, -CUBE_SIZE, -CUBE_SIZE,
+  };
+
+  public static final float[] DRAW_COORDS = new float[] {
+          // Front face
+          -DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+
+          // Right face
+          DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+
+          // Back face
+          DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+
+          // Left face
+          -DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+
+          // Top face
+          -DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+          -DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, DRAW_SIZE,
+          DRAW_SIZE, DRAW_SIZE, -DRAW_SIZE,
+
+          // Bottom face
+          DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
+          DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, DRAW_SIZE,
+          -DRAW_SIZE, -DRAW_SIZE, -DRAW_SIZE,
   };
 
   public static final float[] CUBE_COLORS = new float[] {
